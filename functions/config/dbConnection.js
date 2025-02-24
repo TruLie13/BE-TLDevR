@@ -11,10 +11,7 @@ const connectDB = async () => {
     console.log("Connecting to MongoDB...");
 
     // Attempt to connect to MongoDB using the connection string from .env
-    const connect = await mongoose.connect(process.env.CONNECTION_STRING, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const connect = await mongoose.connect(process.env.CONNECTION_STRING);
 
     // Log the successful connection
     console.log(`Database connected: ${connect.connection.host}`);
