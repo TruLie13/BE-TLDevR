@@ -1,4 +1,5 @@
-const functions = require("firebase-functions");
+const { onRequest } = require("firebase-functions/v2/https");
+const { logger } = require("firebase-functions");
 const express = require("express");
 const cors = require("cors");
 const serverApp = require("./server");
@@ -12,11 +13,18 @@ app.use(
   })
 );
 
-// Middleware to parse JSON request bodies
-app.use(express.json());
-
 app.use(express.json());
 app.use("/", serverApp);
 
+app.use((err, req, res, next) => {
+  logger.error("Error:", err);
+  res.status(500).send("Server error");
+});
+
+serverApp.use((err, req, res, next) => {
+  logger.error("Error:", err);
+  res.status(500).send("Server error");
+});
+
 // Export the app as a Firebase function
-exports.api = functions.https.onRequest(app);
+exports.api = onRequest(app);
