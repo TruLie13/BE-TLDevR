@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Article = require("../models/articleSchema.js");
 const Featured = require("../models/featuredSchema.js");
+const Category = require("../models/categorySchema.js");
 const { isValidObjectId } = require("mongoose");
 
 const checkIsSlugValid = (req, res) => {
@@ -36,11 +37,9 @@ const articleController = {
   //@access public
   getRecentArticles: asyncHandler(async (req, res) => {
     try {
-      const articles = await Article.find()
-        .sort({ publishedAt: -1 }) // Sort by publishedAt in descending order (newest first)
-        .limit(5); // Limit to the X most recent articles
+      const articles = await Article.find().sort({ publishedAt: -1 }).limit(5);
 
-      return res.status(200).json(articles); // Return the recent articles
+      return res.status(200).json(articles);
     } catch (error) {
       console.error("Error fetching recent articles:", error);
       return res.status(500).json({
@@ -55,11 +54,13 @@ const articleController = {
   //@access private
   createArticle: asyncHandler(async (req, res) => {
     try {
+      console.log("Request body:", req.body); // Add this for debugging
+
       const {
         title,
         content,
         category,
-        slug, // Slug is now optional in the request body
+        slug,
         author,
         tags,
         metaDescription,
@@ -70,21 +71,37 @@ const articleController = {
       } = req.body;
 
       if (!title || !content || !category || !author) {
+        console.log("Missing required fields"); // Add this for debugging
         return res.status(400).json({
           message: "Title, content, category, and author are mandatory fields",
         });
       }
 
-      // Generate slug automatically if not provided
+      // Check if category exists
+      console.log("Looking for category with ID:", category); // Add this for debugging
+      const categoryExists = await Category.findById(category);
+      if (!categoryExists) {
+        console.log("Category not found"); // Add this for debugging
+        return res.status(400).json({ message: "Invalid category" });
+      }
+      console.log("Category found:", categoryExists); // Add this for debugging
+
       const generatedSlug = slug
         ? slug
         : title.toLowerCase().replace(/\s+/g, "-");
 
-      const article = await Article.create({
+      console.log("Creating article with data:", {
         title,
         content,
         category,
-        slug: generatedSlug, // Use either the provided slug or the generated one
+        slug: generatedSlug,
+      }); // Add debugging
+
+      const article = await Article.create({
+        title,
+        content,
+        category, // Category ID
+        slug: generatedSlug,
         author: author || "Anonymous",
         tags: tags || [],
         metaDescription: metaDescription || "",
@@ -94,6 +111,8 @@ const articleController = {
         featured: featured || false,
         experienceLevel: experienceLevel || "0",
       });
+
+      console.log("Article created:", article._id); // Add debugging
 
       if (featured) {
         await Featured.create({
@@ -106,19 +125,19 @@ const articleController = {
         });
       }
 
-      res.status(201).json(article);
+      return res.status(201).json(article);
     } catch (error) {
       console.error("Error creating article:", error);
 
       if (error.code === 11000) {
-        const field = Object.keys(error.keyPattern)[0]; // Extracts the duplicate field name
-        const fieldDisplay = field === "slug" ? "Title" : field;
+        const field = Object.keys(error.keyPattern)[0];
+        const fieldDisplay = field === "slug" ? "slug" : field;
         return res
           .status(400)
           .json({ message: `${fieldDisplay} must be unique` });
       }
 
-      res
+      return res // Make sure to return this response
         .status(500)
         .json({ message: "Error creating article", error: error.message });
     }
@@ -129,17 +148,25 @@ const articleController = {
   //@access public
   getArticleBySlug: asyncHandler(async (req, res) => {
     checkIsSlugValid(req, res);
-    const article = await Article.findOne({ slug: req.params.slug });
+    // Add .populate('category') to include full category data
+    const article = await Article.findOne({ slug: req.params.slug }).populate(
+      "category"
+    );
+
     if (!article) {
       res.status(404);
       throw new Error("Article not found");
     }
+
     res.status(200).json(article);
   }),
 
-  //@desc Update article
-  //@route PUT api/articles/:slug
-  //@access private
+  // Also update other retrieval methods like getAllArticles
+  getAllArticles: asyncHandler(async (req, res) => {
+    const articles = await Article.find().populate("category");
+    res.status(200).json(articles);
+  }),
+
   //@desc Update article
   //@route PUT api/articles/:slug
   //@access private
@@ -159,12 +186,9 @@ const articleController = {
     }
 
     const prevFeaturedStatus = article.featured;
-
-    // Ensure the slug remains unchanged
     const { slug, ...updateFields } = req.body;
 
     await Article.updateOne({ slug: req.params.slug }, { $set: updateFields });
-
     const updatedArticle = await Article.findOne({ slug: req.params.slug });
 
     if (prevFeaturedStatus || prevFeaturedStatus !== updatedArticle.featured) {
@@ -178,7 +202,7 @@ const articleController = {
             author: updatedArticle.author,
             image: updatedArticle.image,
           },
-          { upsert: true } // Creates if it doesn't exist
+          { upsert: true }
         );
       } else {
         await Featured.deleteOne({ articleId: updatedArticle._id });
@@ -193,15 +217,11 @@ const articleController = {
   //@access private
   deleteArticle: asyncHandler(async (req, res) => {
     checkIsSlugValid(req, res);
-
     const article = await Article.findOne({ slug: req.params.slug });
 
     if (!article) {
       return res.status(404).json({ message: "Article not found" });
     }
-
-    console.log("Article User ID:", article.user_id.toString()); // Log the article's user_id
-    console.log("Request User ID:", req.user.id); // Log the user_id from the token
 
     if (article.user_id.toString() !== req.user.id) {
       return res
