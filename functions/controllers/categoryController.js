@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Category = require("../models/categorySchema");
+const Article = require("../models/articleSchema");
 
 //@desc Get all categories
 //@route GET /api/categories
@@ -7,6 +8,44 @@ const Category = require("../models/categorySchema");
 const getAllCategories = asyncHandler(async (req, res) => {
   const categories = await Category.find();
   res.status(200).json(categories);
+});
+
+//@desc Get all categories with their most recent articles
+//@route GET api/categories/previews
+//@access public
+const getCategoryPreviews = asyncHandler(async (req, res) => {
+  try {
+    // First, get all categories
+    const categories = await Category.find();
+
+    // Create an array to hold our results
+    const categoryPreviews = [];
+
+    // For each category, get the 5 most recent articles
+    for (const category of categories) {
+      const articles = await Article.find({ category: category._id })
+        .sort({ publishedAt: -1 })
+        .limit(5)
+        .select("title slug image publishedAt"); // Select only fields needed for preview
+
+      categoryPreviews.push({
+        category: {
+          id: category._id,
+          name: category.name,
+          slug: category.slug,
+        },
+        articles: articles,
+      });
+    }
+
+    return res.status(200).json(categoryPreviews);
+  } catch (error) {
+    console.error("Error fetching category previews:", error);
+    return res.status(500).json({
+      message: "Error fetching category previews",
+      error: error.message,
+    });
+  }
 });
 
 //@desc Create a new category
@@ -49,11 +88,9 @@ const updateCategory = asyncHandler(async (req, res) => {
   }
 
   if (category.name === newName) {
-    return res
-      .status(400)
-      .json({
-        message: "New category name must be different from the existing name",
-      });
+    return res.status(400).json({
+      message: "New category name must be different from the existing name",
+    });
   }
 
   category.name = newName;
@@ -82,4 +119,5 @@ module.exports = {
   createCategory,
   deleteCategory,
   updateCategory,
+  getCategoryPreviews,
 };

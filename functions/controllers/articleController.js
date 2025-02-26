@@ -88,24 +88,15 @@ const articleController = {
       }
 
       // Check if category exists
-      console.log("Looking for category with ID:", category); // Add this for debugging
       const categoryExists = await Category.findById(category);
       if (!categoryExists) {
         console.log("Category not found"); // Add this for debugging
         return res.status(400).json({ message: "Invalid category" });
       }
-      console.log("Category found:", categoryExists); // Add this for debugging
 
       const generatedSlug = slug
         ? slug
         : title.toLowerCase().replace(/\s+/g, "-");
-
-      console.log("Creating article with data:", {
-        title,
-        content,
-        category,
-        slug: generatedSlug,
-      }); // Add debugging
 
       const article = await Article.create({
         title,
@@ -121,8 +112,6 @@ const articleController = {
         featured: featured || false,
         experienceLevel: experienceLevel || "0",
       });
-
-      console.log("Article created:", article._id); // Add debugging
 
       if (featured) {
         await Featured.create({
@@ -147,7 +136,7 @@ const articleController = {
           .json({ message: `${fieldDisplay} must be unique` });
       }
 
-      return res // Make sure to return this response
+      return res
         .status(500)
         .json({ message: "Error creating article", error: error.message });
     }

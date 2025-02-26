@@ -8,6 +8,8 @@ router
   .get(categoryController.getAllCategories)
   .post(validateToken, categoryController.createCategory);
 
+router.route("/previews").get(categoryController.getCategoryPreviews);
+
 router
   .route("/:id")
   .put(validateToken, categoryController.updateCategory)
