@@ -8,6 +8,9 @@ router
   .get(categoryController.getAllCategories)
   .post(validateToken, categoryController.createCategory);
 
-router.route("/Lid").delete(validateToken, categoryController.deleteCategory);
+router
+  .route("/:id")
+  .put(validateToken, categoryController.updateCategory)
+  .delete(validateToken, categoryController.deleteCategory);
 
 module.exports = router;

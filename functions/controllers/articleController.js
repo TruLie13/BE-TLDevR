@@ -17,7 +17,7 @@ const articleController = {
   //@route GET api/articles
   //@access public
   getAllArticles: asyncHandler(async (req, res) => {
-    const articles = await Article.find();
+    const articles = await Article.find().populate("category");
     res.status(200).json(articles);
   }),
 
@@ -37,8 +37,10 @@ const articleController = {
   //@access public
   getRecentArticles: asyncHandler(async (req, res) => {
     try {
-      const articles = await Article.find().sort({ publishedAt: -1 }).limit(5);
-
+      const articles = await Article.find()
+        .sort({ publishedAt: -1 })
+        .limit(5)
+        .populate("category");
       return res.status(200).json(articles);
     } catch (error) {
       console.error("Error fetching recent articles:", error);
@@ -74,6 +76,14 @@ const articleController = {
         console.log("Missing required fields"); // Add this for debugging
         return res.status(400).json({
           message: "Title, content, category, and author are mandatory fields",
+        });
+      }
+
+      const mongoose = require("mongoose");
+      if (!mongoose.Types.ObjectId.isValid(category)) {
+        return res.status(400).json({
+          message:
+            "Category must be a valid ID. Please select a category from the dropdown.",
         });
       }
 
