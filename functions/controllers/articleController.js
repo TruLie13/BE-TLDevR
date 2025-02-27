@@ -55,7 +55,7 @@ const articleController = {
 
       // Set up pagination
       const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
+      const limit = parseInt(req.query.limit) || 20;
       const skip = (page - 1) * limit;
 
       // Query articles by category ID with pagination
