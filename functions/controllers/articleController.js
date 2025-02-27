@@ -25,11 +25,56 @@ const articleController = {
   //@route GET api/articles/featured
   //@access public
   getFeaturedArticles: asyncHandler(async (req, res) => {
-    const featuredArticles = await Featured.find().select(
-      "title category slug author publishedAt image"
-    );
+    try {
+      // Find featured articles and populate the full article details including category
+      const featuredArticles = await Featured.find()
+        .populate({
+          path: "articleId",
+          populate: {
+            path: "category",
+            select: "name slug",
+          },
+        })
+        .sort({ _id: -1 }); // Sort by most recently added
 
-    res.status(200).json(featuredArticles || []);
+      // Format the response to match what the frontend expects
+      const formattedArticles = featuredArticles
+        .map((featured) => {
+          const article = featured.articleId;
+
+          if (!article) {
+            return null; // Skip if article is not found (might be deleted)
+          }
+
+          return {
+            _id: featured._id,
+            title: article.title,
+            slug: article.slug,
+            image: article.image,
+            category: article.category
+              ? {
+                  _id: article.category._id,
+                  name: article.category.name,
+                  slug: article.category.slug,
+                }
+              : {
+                  _id: "uncategorized",
+                  name: "Uncategorized",
+                  slug: "uncategorized",
+                },
+            articleId: article._id,
+          };
+        })
+        .filter((article) => article !== null);
+
+      return res.status(200).json(formattedArticles);
+    } catch (error) {
+      console.error("Error fetching featured articles:", error);
+      return res.status(500).json({
+        message: "Error fetching featured articles",
+        error: error.message,
+      });
+    }
   }),
 
   //@desc Get X most recent articles
@@ -56,8 +101,6 @@ const articleController = {
   //@access private
   createArticle: asyncHandler(async (req, res) => {
     try {
-      console.log("Request body:", req.body); // Add this for debugging
-
       const {
         title,
         content,
@@ -73,7 +116,6 @@ const articleController = {
       } = req.body;
 
       if (!title || !content || !category || !author) {
-        console.log("Missing required fields"); // Add this for debugging
         return res.status(400).json({
           message: "Title, content, category, and author are mandatory fields",
         });
@@ -90,7 +132,6 @@ const articleController = {
       // Check if category exists
       const categoryExists = await Category.findById(category);
       if (!categoryExists) {
-        console.log("Category not found"); // Add this for debugging
         return res.status(400).json({ message: "Invalid category" });
       }
 
@@ -101,7 +142,7 @@ const articleController = {
       const article = await Article.create({
         title,
         content,
-        category, // Category ID
+        category,
         slug: generatedSlug,
         author: author || "Anonymous",
         tags: tags || [],
@@ -113,14 +154,10 @@ const articleController = {
         experienceLevel: experienceLevel || "0",
       });
 
+      // If featured, just store the article ID reference
       if (featured) {
         await Featured.create({
           articleId: article._id,
-          title: article.title,
-          category: article.category,
-          slug: article.slug,
-          author: article.author,
-          image: article.image,
         });
       }
 
@@ -190,20 +227,17 @@ const articleController = {
     await Article.updateOne({ slug: req.params.slug }, { $set: updateFields });
     const updatedArticle = await Article.findOne({ slug: req.params.slug });
 
-    if (prevFeaturedStatus || prevFeaturedStatus !== updatedArticle.featured) {
+    // Handle featured status
+    if (prevFeaturedStatus !== updatedArticle.featured) {
       if (updatedArticle.featured) {
-        await Featured.updateOne(
+        // Add to featured
+        await Featured.findOneAndUpdate(
           { articleId: updatedArticle._id },
-          {
-            title: updatedArticle.title,
-            category: updatedArticle.category,
-            slug: updatedArticle.slug,
-            author: updatedArticle.author,
-            image: updatedArticle.image,
-          },
+          { articleId: updatedArticle._id },
           { upsert: true }
         );
       } else {
+        // Remove from featured
         await Featured.deleteOne({ articleId: updatedArticle._id });
       }
     }
