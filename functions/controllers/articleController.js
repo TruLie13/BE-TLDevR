@@ -21,6 +21,79 @@ const articleController = {
     res.status(200).json(articles);
   }),
 
+  //@desc Get article by slug
+  //@route GET api/articles/:slug
+  //@access public
+  getArticleBySlug: asyncHandler(async (req, res) => {
+    checkIsSlugValid(req, res);
+    // Add .populate('category') to include full category data
+    const article = await Article.findOne({ slug: req.params.slug }).populate(
+      "category"
+    );
+
+    if (!article) {
+      res.status(404);
+      throw new Error("Article not found");
+    }
+
+    res.status(200).json(article);
+  }),
+
+  //@desc Get articles by category with pagination
+  //@route GET api/articles/category/:categorySlug?page=1&limit=10
+  //@access public
+  getArticlesByCategory: asyncHandler(async (req, res) => {
+    try {
+      // Get category by slug
+      const category = await Category.findOne({
+        slug: req.params.categorySlug,
+      });
+
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+
+      // Set up pagination
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      // Query articles by category ID with pagination
+      const articles = await Article.find({ category: category._id })
+        .sort({ publishedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate({
+          path: "category",
+          select: "name slug",
+        });
+
+      // Get total count for pagination info
+      const total = await Article.countDocuments({ category: category._id });
+
+      return res.status(200).json({
+        articles,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+        category: {
+          id: category._id,
+          name: category.name,
+          slug: category.slug,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching articles by category:", error);
+      return res.status(500).json({
+        message: "Error fetching articles by category",
+        error: error.message,
+      });
+    }
+  }),
+
   //@desc Get featured articles
   //@route GET api/articles/featured
   //@access public
@@ -177,30 +250,6 @@ const articleController = {
         .status(500)
         .json({ message: "Error creating article", error: error.message });
     }
-  }),
-
-  //@desc Get article by slug
-  //@route GET api/articles/:slug
-  //@access public
-  getArticleBySlug: asyncHandler(async (req, res) => {
-    checkIsSlugValid(req, res);
-    // Add .populate('category') to include full category data
-    const article = await Article.findOne({ slug: req.params.slug }).populate(
-      "category"
-    );
-
-    if (!article) {
-      res.status(404);
-      throw new Error("Article not found");
-    }
-
-    res.status(200).json(article);
-  }),
-
-  // Also update other retrieval methods like getAllArticles
-  getAllArticles: asyncHandler(async (req, res) => {
-    const articles = await Article.find().populate("category");
-    res.status(200).json(articles);
   }),
 
   //@desc Update article

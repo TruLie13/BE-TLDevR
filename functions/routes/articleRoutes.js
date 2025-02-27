@@ -8,6 +8,8 @@ router
   .get(articleController.getAllArticles)
   .post(validateToken, articleController.createArticle);
 
+router.route("/:categorySlug").get(articleController.getArticlesByCategory);
+
 router
   .route("/:slug")
   .get(articleController.getArticleBySlug)
