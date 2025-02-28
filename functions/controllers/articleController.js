@@ -210,7 +210,11 @@ const articleController = {
 
       const generatedSlug = slug
         ? slug
-        : title.toLowerCase().replace(/\s+/g, "-");
+        : title
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, "") // Remove special chars (including dots)
+            .replace(/\s+/g, "-") // Replace spaces with hyphens
+            .trim(); // Remove leading/trailing spaces
 
       const article = await Article.create({
         title,
