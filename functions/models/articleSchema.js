@@ -23,6 +23,11 @@ const articleSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  likeRNG: {
+    type: Number,
+    default: 0,
+  },
+  likeCount: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model("Article", articleSchema);

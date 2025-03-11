@@ -12,6 +12,8 @@ router
   .route("/category/:categorySlug")
   .get(articleController.getArticlesByCategory);
 
+router.route("/like/:slug").post(articleController.likeArticle);
+
 // Regular article routes by slug
 router
   .route("/:slug")

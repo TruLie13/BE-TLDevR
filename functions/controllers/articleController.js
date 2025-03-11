@@ -172,6 +172,10 @@ const articleController = {
   //@desc Create new article
   //@route POST api/articles
   //@access private
+
+  //@desc Create new article
+  //@route POST api/articles
+  //@access private
   createArticle: asyncHandler(async (req, res) => {
     try {
       const {
@@ -216,6 +220,9 @@ const articleController = {
             .replace(/\s+/g, "-") // Replace spaces with hyphens
             .trim(); // Remove leading/trailing spaces
 
+      // Generate a random likeRNG value (fallback)
+      const likeRNG = Math.floor(Math.random() * (50 - 25 + 1) + 25);
+
       const article = await Article.create({
         title,
         content,
@@ -229,6 +236,8 @@ const articleController = {
         user_id: req.user.id,
         featured: featured || false,
         experienceLevel: experienceLevel || "0",
+        likeRNG,
+        likeCount: likeRNG, // Initially, likeCount equals likeRNG
       });
 
       // If featured, just store the article ID reference
@@ -317,6 +326,67 @@ const articleController = {
 
     await Article.findByIdAndDelete(article._id);
     res.status(200).json({ message: "Article deleted successfully", article });
+  }),
+
+  //@desc Like an article (increment or decrement)
+  //@route POST api/articles/like/:slug
+  //@access public
+  likeArticle: asyncHandler(async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const { action } = req.body; // 'like' or 'unlike'
+
+      if (!slug || !action) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+
+      // Find the article
+      const article = await Article.findOne({ slug });
+      if (!article) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+
+      // Update the likeCount based on action
+      let updateOperation = {};
+
+      if (action === "like") {
+        updateOperation = { $inc: { likeCount: 1 } };
+      } else if (action === "unlike") {
+        // Ensure likeCount doesn't go below 0
+        if (article.likeCount > 0) {
+          updateOperation = { $inc: { likeCount: -1 } };
+        } else {
+          return res.status(200).json({
+            success: true,
+            message: "Like count already at 0",
+            likeCount: 0,
+          });
+        }
+      } else {
+        return res
+          .status(400)
+          .json({ message: "Invalid action. Use 'like' or 'unlike'" });
+      }
+
+      // Update the article
+      const updatedArticle = await Article.findOneAndUpdate(
+        { slug },
+        updateOperation,
+        { new: true } // Return the updated document
+      );
+
+      return res.status(200).json({
+        success: true,
+        action,
+        likeCount: updatedArticle.likeCount,
+      });
+    } catch (error) {
+      console.error("Error updating article like count:", error);
+      return res.status(500).json({
+        message: "Error processing like action",
+        error: error.message,
+      });
+    }
   }),
 };
 
