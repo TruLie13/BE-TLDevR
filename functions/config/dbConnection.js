@@ -3,17 +3,8 @@ require("dotenv").config(); // Load environment variables
 
 const connectDB = async () => {
   try {
-    // Check if the connection string is present in the .env file
-    // if (!process.env.CONNECTION_STRING) {
-    //   throw new Error("MongoDB connection string is undefined.");
-    // }
-
     console.log("Connecting to MongoDB...");
 
-    // Attempt to connect to MongoDB using the connection string from .env
-    // const connect = await mongoose.connect(
-    //   "mongodb+srv://Zayan:lQLL4PI90eCIOSuB@cluster0.8kytx.mongodb.net"
-    // );
     const connect = await mongoose.connect(process.env.CONNECTION_STRING);
 
     // Log the successful connection

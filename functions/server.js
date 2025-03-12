@@ -15,7 +15,6 @@ app.get("", (_req, res) => {
 
 app.use(cors());
 app.use(express.json());
-app.use("/contacts", require("./routes/contactRoutes"));
 app.use("/users", require("./routes/userRoutes"));
 app.use("/articles", require("./routes/articleRoutes.js"));
 app.use("/articleList", require("./routes/articleListRoutes.js"));
